@@ -23,6 +23,16 @@
 #define ARRAY_SIZE(x) (sizeof(x) / sizeof(x[0]))
 #define ARRAY_INIT    {0}
 
+// SOL_TCP and TCP_KEEPIDLE undefined on macOS
+// https://stackoverflow.com/questions/15860127/how-to-configure-tcp-keepalive-under-mac-os-x
+#if !defined(SOL_TCP) && defined(IPPROTO_TCP)
+#define SOL_TCP IPPROTO_TCP
+#endif
+#if !defined(TCP_KEEPIDLE) && defined(TCP_KEEPALIVE)
+#define TCP_KEEPIDLE TCP_KEEPALIVE
+#endif
+
+
 unsigned short int port = 1080;
 int daemon_mode = 0;
 int auth_type;
