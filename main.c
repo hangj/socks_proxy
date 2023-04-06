@@ -33,6 +33,7 @@
 #endif
 
 
+char *host = "0.0.0.0"; // 127.0.0.1
 unsigned short int port = 1080;
 int daemon_mode = 0;
 int auth_type;
@@ -44,33 +45,33 @@ pthread_mutex_t lock;
 enum socks {
     RESERVED = 0x00,
     VERSION4 = 0x04,
-    VERSION5 = 0x05
+    VERSION5 = 0x05,
 };
 
 enum socks_auth_methods {
     NOAUTH = 0x00,
     USERPASS = 0x02,
-    NOMETHOD = 0xff
+    NOMETHOD = 0xff,
 };
 
 enum socks_auth_userpass {
     AUTH_OK = 0x00,
     AUTH_VERSION = 0x01,
-    AUTH_FAIL = 0xff
+    AUTH_FAIL = 0xff,
 };
 
 enum socks_command {
-    CONNECT = 0x01
+    CONNECT = 0x01,
 };
 
 enum socks_command_type {
     IP = 0x01,
-    DOMAIN = 0x03
+    DOMAIN = 0x03,
 };
 
 enum socks_status {
     OK = 0x00,
-    FAILED = 0x05
+    FAILED = 0x05,
 };
 
 void log_message(const char *message, ...)
@@ -541,8 +542,12 @@ int app_loop()
 
     memset(&local, 0, sizeof(local));
     local.sin_family = AF_INET;
-    local.sin_addr.s_addr = htonl(INADDR_ANY);
+    // local.sin_addr.s_addr = htonl(INADDR_ANY);
     local.sin_port = htons(port);
+    if (inet_pton(AF_INET, host, &local.sin_addr) <= 0) {
+        log_message("inet_pton()");
+        exit(1);
+    }
 
     if (bind(sock_fd, (struct sockaddr *)&local, sizeof(local)) < 0) {
         log_message("bind()");
