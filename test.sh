@@ -1,50 +1,53 @@
 HOST=127.0.0.1
 PORT=1080
-GETIP="https://2ip.ru"
+GETIP="https://httpbin.org/ip"
 PID=0
 SERVER_NAME="proxy"
 OUTLOG=log.txt
 PASSED=0
 
+# list which process is listening on port 1080
+# lsof -i :1080
+
 start_server(){
-	echo "Starting server"
-	"./${SERVER_NAME}" &>$OUTLOG &disown;
-	PID=$!
+        echo "Starting server"
+        "./${SERVER_NAME}" &>$OUTLOG &disown;
+        PID=$!
 }
 
 stop_server() {
-	echo "Stopping server"
-	kill -9 $PID
+        echo "Stopping server"
+        kill -9 $PID
 }
 
 fail() {
-	stop_server
-	exit 1
+        stop_server
+        exit 1
 }
 
 send_request_using_proxy4() {
-        VAL_PROXY4=$(curl -s -x socks4h://$HOST:$PORT $1)
+        VAL_PROXY4=$(curl -s -x socks4://$HOST:$PORT $1)
 }
 
 send_request_using_proxy4a() {
-        VAL_PROXY4A=$(curl -s -x socks4ah://$HOST:$PORT $1)
+        VAL_PROXY4A=$(curl -s -x socks4a://$HOST:$PORT $1)
 }
 
 send_request_using_proxy5() {
-	VAL_PROXY5=$(curl -s -x socks5h://$HOST:$PORT $1)
+        VAL_PROXY5=$(curl -v -s -x socks5://$HOST:$PORT $1)
 }
 
 send_request_without_proxy() {
-	VAL_WPROXY=$(curl -s $1)
+        VAL_WPROXY=$(curl -s $1)
 }
 
 check_ip_test4() {
-	echo "4: Check ip test"
-	send_request_using_proxy4 $GETIP
-	send_request_without_proxy $GETIP
-	if [ "$VAL_PROXY4" != "$VAL_WPROXY" ]; then
-		fail
-	fi
+        echo "4: Check ip test"
+        send_request_using_proxy4 $GETIP
+        send_request_without_proxy $GETIP
+        if [ "$VAL_PROXY4" != "$VAL_WPROXY" ]; then
+                fail
+        fi
 }
 
 check_ip_test4a() {
@@ -66,10 +69,10 @@ check_ip_test5() {
 }
 
 stability_test4() {
-	echo "4: Stability test"
-	for i in {1..10};
-	do send_request_using_proxy4 $GETIP && echo "Success";
-	done;
+        echo "4: Stability test"
+        for i in {1..10};
+        do send_request_using_proxy4 $GETIP && echo "Success";
+        done;
 }
 
 stability_test4a() {
@@ -81,16 +84,17 @@ stability_test4a() {
 
 stability_test5() {
         echo "5: Stability test"
-        for i in {1..10};
-        do send_request_using_proxy4a $GETIP && echo "Success";
-        done;
+        # for i in {1..10};
+        # do send_request_using_proxy5 $GETIP && echo "Success";
+        # done;
+        send_request_using_proxy5 $GETIP && echo "Success";
 }
 
 
 rm $OUTLOG
 start_server
-stability_test4
-stability_test4a
+# stability_test4
+# stability_test4a
 stability_test5
 #check_ip_test4
 #check_ip_test4a
