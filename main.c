@@ -36,6 +36,7 @@
 char *host = "0.0.0.0"; // 127.0.0.1
 unsigned short int port = 0; // random port
 int daemon_mode = 0;
+int verbos = 0;
 int auth_type;
 char *arg_username;
 char *arg_password;
@@ -217,7 +218,7 @@ int socks_invitation(int fd, int *version)
         log_message("Incompatible version!");
         app_thread_exit(0, fd);
     }
-    log_message("Initial %hhX %hhX", init[0], init[1]);
+    if (verbos) log_message("Initial %hhX %hhX", init[0], init[1]);
     *version = init[0];
     return init[1];
 }
@@ -252,10 +253,10 @@ int socks5_auth_userpass(int fd)
     writen(fd, (void *)answer, ARRAY_SIZE(answer));
     char resp;
     readn(fd, (void *)&resp, sizeof(resp));
-    log_message("auth %hhX", resp);
+    if (verbos) log_message("auth %hhX", resp);
     char *username = socks5_auth_get_user(fd);
     char *password = socks5_auth_get_pass(fd);
-    log_message("l: %s p: %s", username, password);
+    if (verbos) log_message("l: %s p: %s", username, password);
     if (strcmp(arg_username, username) == 0
         && strcmp(arg_password, password) == 0) {
         char answer[2] = { AUTH_VERSION, AUTH_OK };
@@ -292,7 +293,7 @@ void socks5_auth(int fd, int methods_count)
     for (int i = 0; i < num; i++) {
         char type;
         readn(fd, (void *)&type, 1);
-        log_message("Method AUTH %hhX", type);
+        if (verbos) log_message("Method AUTH %hhX", type);
         if (type == auth_type) {
             supported = 1;
         }
@@ -321,7 +322,7 @@ int socks5_command(int fd)
 {
     char command[4];
     readn(fd, (void *)command, ARRAY_SIZE(command));
-    log_message("Command %hhX %hhX %hhX %hhX", command[0], command[1],
+    if (verbos) log_message("Command %hhX %hhX %hhX %hhX", command[0], command[1],
             command[2], command[3]);
     return command[3];
 }
@@ -330,7 +331,7 @@ unsigned short int socks_read_port(int fd)
 {
     unsigned short int p;
     readn(fd, (void *)&p, sizeof(p));
-    log_message("Port %hu", ntohs(p));
+    if (verbos) log_message("Port %hu", ntohs(p));
     return p;
 }
 
@@ -338,7 +339,7 @@ char *socks_ip_read(int fd)
 {
     char *ip = (char *)malloc(sizeof(char) * IPSIZE);
     readn(fd, (void *)ip, IPSIZE);
-    log_message("IP %hhu.%hhu.%hhu.%hhu", ip[0], ip[1], ip[2], ip[3]);
+    if (verbos) log_message("IP %hhu.%hhu.%hhu.%hhu", ip[0], ip[1], ip[2], ip[3]);
     return ip;
 }
 
@@ -357,7 +358,7 @@ char *socks5_domain_read(int fd, unsigned char *size)
     char *address = (char *)malloc((sizeof(char) * s) + 1);
     readn(fd, (void *)address, (int)s);
     address[s] = 0;
-    log_message("Address %s", address);
+    if (verbos) log_message("Address %s", address);
     *size = s;
     return address;
 }
@@ -414,7 +415,7 @@ void app_socket_pipe(int fd0, int fd1)
     size_t nread;
     char buffer_r[BUFSIZE];
 
-    log_message("Connecting two sockets");
+    if (verbos) log_message("Connecting two sockets");
 
     maxfd = (fd0 > fd1) ? fd0 : fd1;
     while (1) {
@@ -492,10 +493,10 @@ void *app_thread_process(void *fd)
                 if (socks4_is_4a(ip)) {
                     char domain[255];
                     socks4_read_nstring(net_fd, domain, sizeof(domain));
-                    log_message("Socks4A: ident:%s; domain:%s;", ident, domain);
+                    if (verbos) log_message("Socks4A: ident:%s; domain:%s;", ident, domain);
                     inet_fd = app_connect(DOMAIN, (void *)domain, ntohs(p));
                 } else {
-                    log_message("Socks4: connect by ip & port");
+                    if (verbos) log_message("Socks4: connect by ip & port");
                     inet_fd = app_connect(IP, (void *)ip, ntohs(p));
                 }
 
@@ -652,7 +653,7 @@ int main(int argc, char *argv[])
 
     signal(SIGPIPE, SIG_IGN);
 
-    while ((ret = getopt(argc, argv, "n:u:p:l:a:hd")) != -1) {
+    while ((ret = getopt(argc, argv, "n:u:p:l:a:hd:v")) != -1) {
         switch (ret) {
         case 'd':{
                 daemon_mode = 1;
@@ -679,6 +680,10 @@ int main(int argc, char *argv[])
                 auth_type = atoi(optarg);
                 break;
             }
+        case 'v':{
+                verbos = 1;
+                break;
+        }
         case 'h':
         default:
             usage(argv[0]);
