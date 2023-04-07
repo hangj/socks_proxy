@@ -34,7 +34,7 @@
 
 
 char *host = "0.0.0.0"; // 127.0.0.1
-unsigned short int port = 1080;
+unsigned short int port = 0; // random port
 int daemon_mode = 0;
 int auth_type;
 char *arg_username;
@@ -451,7 +451,7 @@ void *app_thread_process(void *fd)
     char methods = socks_invitation(net_fd, &version);
 
     switch (version) {
-    case VERSION5: {
+        case VERSION5: {
             socks5_auth(net_fd, methods);
             int command = socks5_command(net_fd);
 
@@ -543,7 +543,7 @@ int app_loop()
     memset(&local, 0, sizeof(local));
     local.sin_family = AF_INET;
     // local.sin_addr.s_addr = htonl(INADDR_ANY);
-    local.sin_port = htons(port);
+    // local.sin_port = htons(port);
     if (inet_pton(AF_INET, host, &local.sin_addr) <= 0) {
         log_message("inet_pton()");
         exit(1);
@@ -553,6 +553,12 @@ int app_loop()
         log_message("bind()");
         exit(1);
     }
+    socklen_t len = sizeof(local);
+    if(getsockname(sock_fd, (struct sockaddr*)&local, &len)) {
+        log_message("getsockname()");
+        exit(1);
+    }
+    port = htons(local.sin_port);
 
     if (listen(sock_fd, 25) < 0) {
         log_message("listen()");
