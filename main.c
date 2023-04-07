@@ -179,11 +179,12 @@ int app_connect(int type, void *buf, unsigned short int portnum)
         return fd;
     } else if (type == DOMAIN) {
         char portaddr[6];
-        struct addrinfo *res;
+        struct addrinfo *res = NULL;
         snprintf(portaddr, ARRAY_SIZE(portaddr), "%d", portnum);
         log_message("getaddrinfo: %s %s", (char *)buf, portaddr);
         int ret = getaddrinfo((char *)buf, portaddr, NULL, &res);
-        if (ret == EAI_NODATA) {
+        if (ret) {
+            log_message("getaddrinfo() %s", gai_strerror(ret));
             return -1;
         } else if (ret == 0) {
             struct addrinfo *r;
@@ -191,18 +192,21 @@ int app_connect(int type, void *buf, unsigned short int portnum)
                 fd = socket(r->ai_family, r->ai_socktype,
                         r->ai_protocol);
                 if (fd == -1) {
+                    log_message("socket()");
                     continue;
                 }
                 ret = connect(fd, r->ai_addr, r->ai_addrlen);
                 if (ret == 0) {
                     freeaddrinfo(res);
+                    res = NULL;
                     return fd;
                 } else {
                     close(fd);
+                    continue;
                 }
             }
         }
-        freeaddrinfo(res);
+        if (res) freeaddrinfo(res);
         return -1;
     }
 
@@ -227,6 +231,7 @@ char *socks5_auth_get_user(int fd)
 {
     unsigned char size;
     readn(fd, (void *)&size, sizeof(size));
+    if (size == 0) return NULL;
 
     char *user = (char *)malloc(sizeof(char) * size + 1);
     readn(fd, (void *)user, (int)size);
@@ -239,6 +244,7 @@ char *socks5_auth_get_pass(int fd)
 {
     unsigned char size;
     readn(fd, (void *)&size, sizeof(size));
+    if (size == 0) return NULL;
 
     char *pass = (char *)malloc(sizeof(char) * size + 1);
     readn(fd, (void *)pass, (int)size);
@@ -255,7 +261,10 @@ int socks5_auth_userpass(int fd)
     readn(fd, (void *)&resp, sizeof(resp));
     if (verbos) log_message("auth %hhX", resp);
     char *username = socks5_auth_get_user(fd);
+    if (username == NULL) return 1;
     char *password = socks5_auth_get_pass(fd);
+    if (password == NULL) return 1;
+
     if (verbos) log_message("l: %s p: %s", username, password);
     if (strcmp(arg_username, username) == 0
         && strcmp(arg_password, password) == 0) {
@@ -424,8 +433,11 @@ void app_socket_pipe(int fd0, int fd1)
         FD_SET(fd1, &rd_set);
         ret = select(maxfd + 1, &rd_set, NULL, NULL, NULL);
 
-        if (ret < 0 && errno == EINTR) {
-            continue;
+        if (ret < 0) {
+            if (errno == EINTR)
+                continue;
+            log_message("select()");
+            break;
         }
 
         if (FD_ISSET(fd0, &rd_set)) {
@@ -449,11 +461,11 @@ void *app_thread_process(void *fd)
     int net_fd = *(int *)fd;
     int version = 0;
     int inet_fd = -1;
-    char methods = socks_invitation(net_fd, &version);
+    char nmethods = socks_invitation(net_fd, &version);
 
     switch (version) {
         case VERSION5: {
-            socks5_auth(net_fd, methods);
+            socks5_auth(net_fd, nmethods);
             int command = socks5_command(net_fd);
 
             if (command == IP) {
@@ -486,7 +498,7 @@ void *app_thread_process(void *fd)
             }
         }
         case VERSION4: {
-            if (methods == 1) {
+            if (nmethods == 1) {
                 char ident[255];
                 unsigned short int p = socks_read_port(net_fd);
                 char *ip = socks_ip_read(net_fd);
