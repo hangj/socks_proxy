@@ -462,6 +462,7 @@ void *app_thread_process(void *fd)
 
                 inet_fd = app_connect(IP, (void *)ip, ntohs(p));
                 if (inet_fd == -1) {
+                    free(ip);
                     app_thread_exit(1, net_fd);
                 }
                 socks5_ip_send_response(net_fd, ip, p);
@@ -474,6 +475,7 @@ void *app_thread_process(void *fd)
 
                 inet_fd = app_connect(DOMAIN, (void *)address, ntohs(p));
                 if (inet_fd == -1) {
+                    free(address);
                     app_thread_exit(1, net_fd);
                 }
                 socks5_domain_send_response(net_fd, address, size, p);
