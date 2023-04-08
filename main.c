@@ -178,7 +178,7 @@ int app_connect(int type, void *buf, unsigned short int portnum)
 
         return fd;
     } else if (type == DOMAIN) {
-        char portaddr[6];
+        char portaddr[6] = {0};
         struct addrinfo *res = NULL;
         snprintf(portaddr, ARRAY_SIZE(portaddr), "%d", portnum);
         log_message("getaddrinfo: %s %s", (char *)buf, portaddr);
